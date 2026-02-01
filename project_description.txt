@@ -1,0 +1,227 @@
+What does the project do? 
+Student Management System is a CLI project who more likely for developers and tech people.
+has four main classes: Person, Student, Grade, Course each class has its attributes and methods
+
+Person: 
+    - Name: Person Name
+    - Age: Person Age
+    - Gender: Person Gender
+    - get_details():  for printing person info
+Student:
+    Inherit Person: 
+        Name: Student Name (At Least 3 Characters)
+        Age: Student Age   (In Range 17 and 29 Included)
+        Gender: Student Gender (Male or Female) Handle lowercase and uppercase
+        student_id: Unique id for each student
+        courses : has courses as keys and grades as values (dict)  
+        add_course()
+            - Take Course Name as input from user
+            - checks if it's already exists
+            - add course then print message to user
+        
+        remove_course()
+            - get course name from user
+            - checks if existance
+            - if not found print a message to user and returns 
+            - print a success deletion message and delete it.
+
+        get_grade()
+            - Returns list of grade values in courses dictionary
+
+        add_grade()
+            - checks if student enrolled in course or not
+            - checks if grade already exists
+            - match grade with course name and assign them
+
+        get_courses()
+            - Return Keys of Courses dictionary (course name)
+
+
+
+Grade: 
+    - Course name: course name passed as parameter OR user type it in runtime with validation
+    - Grade: Grade passed as parameter OR user type it in runtime with validation
+
+Course:
+     - Name: Course name
+     - Credit: Credit Hours of Course
+     - Enrolled_students: List of Enrolled Students
+     - add_student()
+        - add students to enrolled students in course
+     - remove_student()
+        - check if student is found in the enrolled students
+        - if not print a message to user and returns 
+        - remove student from course (Unrol)
+     - get_students()
+        - return list of enrolled students
+     - get_students_count()
+        - return count of enrolled students in a course
+
+
+### service classes: to handle business logic with static methods
+
+CourseService: 
+display_course_info()
+    - void function that prints complete course information: name, credit, enrolled_students number
+    - displays each student with their id enrolled in this course
+    - displays average grade for this course using get_course_average()
+    - checks if the course has NO enrolled students
+
+
+get_course_average()
+    - checks if the course has NO enrolled students
+    - collects all grades for this course from all students
+    - returns total grades / grades count
+    - check if there is NO grades: print a message for user and return None
+
+StudentService: 
+get_grade_for_course(student, course_name)
+    - gets student grade for a specific course
+    - gets all grades
+    - search for matching course name with grade
+    - if found return the grade attribute (NOT FULL OBJECT)
+    - if not print a message for user then return none
+
+enrol_in_course(student, course)
+    - checks if student is already enrolled in the course
+    - Add Course to Student
+    - Add Student to Course
+    - Print success message to user
+
+drop_student_from_course(student, course)
+    - checks if student is already enrolled 
+    - if not print message to user and return 
+    - remove course from student
+    - remove student from course
+    - print success message to user
+
+add_grade_to_student(student, course_name, grade_value)
+    - Validate grade value
+    - check if student is enrolled in the course
+    - if not print message to user and return
+    - create grade object
+    - add to student grades
+
+calculate_average_grade(student)
+    - handle empty grade
+    - calculate average
+    - return average
+
+display_full_info(student)
+    - Display Student Peronsal Data: Name, Age, Gender, Student id
+    - Display enrolled courses
+    - Display grades
+    - display average
+    - No Return 
+
+display_student_average(student)
+    - take average from calculate_average_grade(student) fucntion
+    - if average is None return
+    - Display Grade Letter (A, B, C, D, F)
+    - No Return 
+
+update_student_grade(student, course_name, new_grade)
+    - validate new grade
+    - if not returns
+    - Find the grade to update
+    - If not found print message to user
+
+
+
+utils folder
+constants (hardcode info)
+    - CS_COURSES: list of 20 computer science courses
+    - ID_LENGTH = 6
+    - MIN_NAME_LENGTH = 3
+    - MIN_AGE = 17
+    - MAX_AGE = 29
+    - MIN_CREDIT = 2
+    - MAX_CREDIT = 5
+    - MIN_GRADE = 0
+    - MAX_GRADE = 100
+
+
+display: 
+    - display_menu()
+        - 1. Create Student
+        - 2. Create Course
+        - 3. Enroll Student in Course
+        - 4. Add Grade To Student
+        - 5. Display Student Info
+        - 6. Display Course Info
+        - 7. Calculate Student Average
+        - 8. Drop Student from Course
+        - 9. Get Grade for Course
+        - 10. Update Student Grade
+        - 0. Exit
+
+
+helper: 
+    - displaying_collectors(label, collectors)
+        - Displaying all elements of a list for example (students, courses)
+    - user_choice(lablel, choice_collector)
+        - checks user input as valid interger
+        - convert it to int
+        - check range from 0:n-1
+        - return index (choice - 1)
+        - if not correct print error message
+    - pick_student(students)  
+        - merge between displaying collectors (students) and user choice in one function
+    
+    - pick_student(courses)  
+        - merge between displaying collectors (courses) and user choice in one function
+    
+
+validators:
+    - get_valid_gender()
+        - checks if gender is either male or female 
+        - handles lowercases, uppercases and empty input
+        - return gender
+    
+    - get_valid_age()
+        - checks if input is a number
+        - convert it to int
+        - check age range
+        - return age
+
+    - get_valid_name()
+        - checks empty input 
+        - must be at least 3 characters
+        - only alphabet allowed
+        - title full name 
+        - return name
+
+    - get_valid_unique_id()
+        - checks empty input
+        - checks is numeric
+        - must be equal to ID_LENGTH
+        - checks if it's unique
+        - return id
+    
+    - get_valid_grade()
+        - checks empty input
+        - checks only positive numbers allowed
+        - convert to int
+        - checks range
+        - return grade
+
+    - get_valid_credit()
+        - checks empty input
+        - checks only positive numbers allowed
+        - convert to int
+        - checks range
+        - return credit
+    - get_valid_course_name()
+        - checks empty input
+        - handle spaces
+        - lowercase research for matching
+        - if matched return course name
+        - if not valid print sample of available courses
+
+
+main: 
+    - empty list of students and courses
+    - displaying menu
+    - user choose an action 
+    - perform that action
+    - only runs in main.py
