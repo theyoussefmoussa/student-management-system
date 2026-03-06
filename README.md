@@ -2,24 +2,28 @@
 
 A command-line interface (CLI) application for managing students, courses, and grades. The system enables developers and technical users to create students, enroll them in courses, assign grades, and compute averages — all through an interactive menu-driven interface.
 
+> **v2.0** — Migrated from in-memory storage to a persistent **MySQL** database using the Repository Pattern.
+
 ---
 
 ## Table of Contents
 
 - [Features](#features)
 - [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
 - [Classes Overview](#classes-overview)
   - [Core Models](#core-models)
   - [Service Classes](#service-classes)
+  - [Repository Classes](#repository-classes)
 - [Utils Module](#utils-module)
   - [Constants](#constants)
   - [Validators](#validators)
   - [Display](#display)
   - [Helpers](#helpers)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Usage](#usage)
 - [Menu Options](#menu-options)
-- [Configuration](#configuration)
 - [Requirements](#requirements)
 
 ---
@@ -33,7 +37,7 @@ A command-line interface (CLI) application for managing students, courses, and g
 - **Display Student Info** — View a student's full profile, enrolled courses, grades, and average
 - **Display Course Info** — View a course's details, enrolled students, and average grade
 - **Calculate Student Average** — Compute and display a student's overall grade average with a letter grade
-- **Drop Student from Course** — Remove a student's enrollment from a course
+- **Drop Student from Course** — Remove a student's enrollment and grade from a course
 - **Get Grade for Course** — Retrieve a student's grade for a specific course
 - **Update Student Grade** — Modify an existing grade for a student in a given course
 
@@ -44,23 +48,57 @@ A command-line interface (CLI) application for managing students, courses, and g
 ```
 student_management_system/
 ├── main.py
+├── .env                        # Database credentials (not tracked by Git)
+├── .gitignore
 ├── models/
-│   ├── __init__.py
 │   ├── person.py
 │   ├── student.py
-│   ├── grade.py
 │   └── course.py
 ├── services/
-│   ├── __init__.py
 │   ├── student_service.py
 │   └── course_service.py
+├── repo/
+│   ├── student_repo.py
+│   ├── course_repo.py
+│   ├── enrollment_repo.py
+│   └── grade_repo.py
+├── database/
+│   ├── connection.py
+│   └── schema.sql
 └── utils/
-    ├── __init__.py
     ├── constants.py
     ├── validators.py
     ├── display.py
     └── helper.py
 ```
+
+---
+
+## Database Schema
+
+The application uses a **MySQL** database with 4 tables:
+
+```
+students ──────────────────────────────┐
+│ student_id (PK, VARCHAR 6)           │
+│ name                                 │
+│ age                                  │         enrollments
+│ gender                               ├────< student_id (FK)
+                                       │     course_id  (FK)
+courses ───────────────────────────────┤
+│ course_id (PK, AUTO_INCREMENT)       │
+│ name (UNIQUE)                        │
+│ credit                               │
+                                       
+grades
+│ id (PK, AUTO_INCREMENT)
+│ student_id (FK → students)
+│ course_id  (FK → courses)
+│ grade_value
+│ UNIQUE (student_id, course_id)
+```
+
+All foreign keys use `ON DELETE CASCADE` — deleting a student or course automatically removes all related enrollments and grades.
 
 ---
 
@@ -86,74 +124,44 @@ The base class representing a person in the system.
 
 #### `Student` *(inherits `Person`)*
 
-Represents a student with academic data. Extends `Person` with a unique ID and course/grade tracking.
+Represents a student. Extends `Person` with a unique ID. Data is persisted in the database via `StudentRepo`.
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `name` | `str` | Student name (minimum 3 characters) |
 | `age` | `int` | Student age (range: 17–29) |
 | `gender` | `str` | Gender — `Male` or `Female` (case-insensitive input) |
-| `student_id` | `str` | Unique numeric ID of fixed length |
-| `courses` | `dict` | Dictionary with course names as keys and `Grade` objects as values |
-
-| Method | Return | Description |
-|--------|--------|-------------|
-| `add_course(course_name)` | `None` | Adds a course to the student's enrolled courses after checking for duplicates |
-| `remove_course(course_name)` | `None` | Removes a course from the student's enrolled courses if it exists |
-| `get_grade()` | `list` | Returns a list of all `Grade` objects from the courses dictionary |
-| `add_grade(course_name, grade)` | `None` | Assigns a `Grade` object to a course after validating enrollment and checking for existing grades |
-| `get_courses()` | `list` | Returns a list of enrolled course names |
-
----
-
-#### `Grade`
-
-Represents a grade entry for a specific course.
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `course_name` | `str` | The name of the course this grade belongs to |
-| `grade` | `int` | The numeric grade value (0–100) |
-
-> Both attributes can be passed as parameters during instantiation or entered by the user at runtime with input validation.
+| `student_id` | `str` | Unique numeric ID of fixed length (6 digits) |
 
 ---
 
 #### `Course`
 
-Represents a course offered in the system.
+Represents a course offered in the system. Data is persisted in the database via `CourseRepo`.
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | The course name |
+| `name` | `str` | The course name (must be from the predefined CS courses list) |
 | `credit` | `int` | Credit hours of the course (range: 2–5) |
-| `enrolled_students` | `list` | List of `Student` objects enrolled in this course |
-
-| Method | Return | Description |
-|--------|--------|-------------|
-| `add_student(student)` | `None` | Adds a student to the enrolled students list |
-| `remove_student(student)` | `None` | Removes a student from the enrolled list if found |
-| `get_students()` | `list` | Returns the list of enrolled students |
-| `get_students_count()` | `int` | Returns the number of students enrolled in the course |
 
 ---
 
 ### Service Classes
 
-Service classes contain **static methods** only and are responsible for all business logic. They act as the bridge between user actions and the core models.
+Service classes contain **static methods** only and are responsible for all business logic. They act as the bridge between user actions and the repositories.
 
 #### `StudentService`
 
 | Method | Return | Description |
 |--------|--------|-------------|
-| `get_grade_for_course(student, course_name)` | `int` or `None` | Returns the numeric grade value for a specific course, or `None` if not found |
-| `enrol_in_course(student, course)` | `None` | Enrolls a student in a course by updating both the student and course records |
-| `drop_student_from_course(student, course)` | `None` | Removes a student from a course by updating both records |
-| `add_grade_to_student(student, course_name, grade_value)` | `None` | Validates and assigns a grade to a student for a given course |
-| `calculate_average_grade(student)` | `float` or `None` | Calculates and returns the student's overall grade average |
-| `display_full_info(student)` | `None` | Prints the student's personal data, enrolled courses, grades, and average |
-| `display_student_average(student)` | `None` | Displays the student's average grade along with the corresponding letter grade (A, B, C, D, F) |
-| `update_student_grade(student, course_name, new_grade)` | `None` | Updates an existing grade for a student in a specified course after validation |
+| `get_grade_for_course(student_id, course_name)` | `int` or `None` | Returns the numeric grade value for a specific course |
+| `enrol_in_course(student_id, course_name)` | `None` | Enrolls a student in a course after checking for duplicate enrollment |
+| `drop_student_from_course(student_id, course_name)` | `None` | Removes a student from a course and deletes their grade for it |
+| `add_grade_to_student(student_id, course_name, grade_value)` | `None` | Validates and assigns a grade to a student for a given course |
+| `calculate_average_grade(student_id)` | `float` or `None` | Calculates and returns the student's overall grade average |
+| `display_full_info(student_id)` | `None` | Prints the student's personal data, enrolled courses, grades, and average |
+| `display_student_average(student_id)` | `None` | Displays the student's average grade with a letter grade (A, B, C, D, F) |
+| `update_student_grade(student_id, course_name, new_grade)` | `None` | Updates an existing grade for a student in a specified course |
 
 ---
 
@@ -161,16 +169,59 @@ Service classes contain **static methods** only and are responsible for all busi
 
 | Method | Return | Description |
 |--------|--------|-------------|
-| `display_course_info(course)` | `None` | Prints the course name, credit hours, enrolled student count, student IDs, and the course average grade |
-| `get_course_average(course)` | `float` or `None` | Calculates and returns the average grade across all enrolled students for the course |
+| `display_course_info(course_name)` | `None` | Prints the course name, credit hours, enrolled student count, student IDs, and course average |
+| `get_course_average(course_id)` | `float` or `None` | Calculates and returns the average grade across all enrolled students |
+
+---
+
+### Repository Classes
+
+Repositories handle all direct communication with the MySQL database. Each repository is responsible for one table only.
+
+#### `StudentRepo`
+
+| Method | Description |
+|--------|-------------|
+| `add_student(student)` | Inserts a new student record |
+| `get_all_students()` | Returns all students |
+| `get_student_by_id(student_id)` | Returns a single student by ID |
+| `delete_student(student_id)` | Deletes a student record |
+
+#### `CourseRepo`
+
+| Method | Description |
+|--------|-------------|
+| `add_course(course)` | Inserts a new course record |
+| `get_all_courses()` | Returns all courses |
+| `get_course_by_name(course_name)` | Returns a course by name |
+| `get_course_by_id(course_id)` | Returns a course by ID |
+| `delete_course_by_id(course_id)` | Deletes a course record |
+
+#### `EnrollmentRepo`
+
+| Method | Description |
+|--------|-------------|
+| `enroll_student(student_id, course_id)` | Creates an enrollment record |
+| `drop_student(student_id, course_id)` | Deletes an enrollment record |
+| `get_courses_for_student(student_id)` | Returns all course IDs for a student |
+| `get_students_for_course(course_id)` | Returns all student IDs for a course |
+| `is_enrolled(student_id, course_id)` | Returns `True` if the student is enrolled |
+
+#### `GradeRepo`
+
+| Method | Description |
+|--------|-------------|
+| `add_grade(student_id, course_id, grade_value)` | Inserts a new grade record |
+| `get_grade(student_id, course_id)` | Returns a specific grade |
+| `get_all_grades_for_student(student_id)` | Returns all grades for a student |
+| `update_grade(student_id, course_id, new_grade)` | Updates an existing grade |
+| `delete_grade(student_id, course_id)` | Deletes a grade record |
 
 ---
 
 ## Utils Module
 
 ### Constants
-
-Defined in `constants.py`. All application-wide configuration values are centralized here.
 
 | Constant | Value | Description |
 |----------|-------|-------------|
@@ -188,14 +239,12 @@ Defined in `constants.py`. All application-wide configuration values are central
 
 ### Validators
 
-Defined in `validators.py`. Each function handles user input validation and returns a sanitized value only when all checks pass.
-
 | Function | Return | Description |
 |----------|--------|-------------|
-| `get_valid_gender()` | `str` | Validates gender input as `Male` or `Female` (case-insensitive) |
+| `get_valid_gender()` | `str` | Validates gender as `Male` or `Female` (case-insensitive) |
 | `get_valid_age()` | `int` | Validates age as an integer within the allowed range |
-| `get_valid_name()` | `str` | Validates name — non-empty, alphabetic, minimum length, and title-cased |
-| `get_valid_unique_id()` | `str` | Validates student ID — numeric, correct length, and unique across the system |
+| `get_valid_name()` | `str` | Validates name — non-empty, alphabetic, minimum length, title-cased |
+| `get_valid_unique_id()` | `str` | Validates student ID — numeric, correct length, unique (checked against database) |
 | `get_valid_grade()` | `int` | Validates grade as a positive integer within the allowed range |
 | `get_valid_credit()` | `int` | Validates credit hours as a positive integer within the allowed range |
 | `get_valid_course_name()` | `str` | Validates course name against the predefined list using case-insensitive matching |
@@ -203,8 +252,6 @@ Defined in `validators.py`. Each function handles user input validation and retu
 ---
 
 ### Display
-
-Defined in `display.py`.
 
 | Function | Description |
 |----------|-------------|
@@ -214,14 +261,11 @@ Defined in `display.py`.
 
 ### Helpers
 
-Defined in `helper.py`. Utility functions used across the application to reduce redundant code.
-
 | Function | Return | Description |
 |----------|--------|-------------|
-| `displaying_collectors(label, collectors)` | `None` | Displays all elements of a list (e.g., students or courses) with a label |
-| `user_choice(label, choice_collector)` | `int` | Prompts the user to select an item by index, validates the input, and returns the zero-based index |
-| `pick_student(students)` | `Student` | Combines `displaying_collectors` and `user_choice` to let the user select a student |
-| `pick_course(courses)` | `Course` | Combines `displaying_collectors` and `user_choice` to let the user select a course |
+| `user_choice(label, choice_collector)` | `int` | Prompts the user to select an item by index, validates input, returns zero-based index |
+| `pick_student()` | `str` | Fetches students from database, displays them, and returns the selected `student_id` |
+| `pick_course()` | `str` | Fetches courses from database, displays them, and returns the selected `course_name` |
 
 ---
 
@@ -240,7 +284,32 @@ cd student_management_system
 python --version
 ```
 
-3. No external dependencies are required. The project uses only Python standard libraries.
+3. Install dependencies:
+
+```bash
+pip install mysql-connector-python python-dotenv
+```
+
+4. Create the database by running `database/schema.sql` in your MySQL client:
+
+```bash
+mysql -u root -p < database/schema.sql
+```
+
+---
+
+## Configuration
+
+Create a `.env` file in the root directory with your database credentials:
+
+```
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=student_management_system
+```
+
+> ⚠️ Never commit your `.env` file. It is already listed in `.gitignore`.
 
 ---
 
@@ -274,19 +343,9 @@ The system will display the main menu. Enter the corresponding number to perform
 
 ---
 
-## Configuration
-
-All system-wide limits and predefined data are managed in `utils/constants.py`. To adjust any of the following, modify the corresponding value in that file:
-
-- Student age range
-- Name length requirement
-- Student ID length
-- Grade and credit hour ranges
-- Available course list
-
----
-
 ## Requirements
 
 - Python 3.6 or higher
-- No third-party libraries required
+- MySQL 8.0 or higher
+- `mysql-connector-python`
+- `python-dotenv`

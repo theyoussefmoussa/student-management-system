@@ -2,130 +2,151 @@ What does the project do?
 Student Management System is a CLI project who more likely for developers and tech people.
 has four main classes: Person, Student, Grade, Course each class has its attributes and methods
 
+> v2.0 — Migrated from in-memory storage to a persistent MySQL database using the Repository Pattern.
+
 Person: 
     - Name: Person Name
     - Age: Person Age
     - Gender: Person Gender
     - get_details():  for printing person info
+
 Student:
     Inherit Person: 
         Name: Student Name (At Least 3 Characters)
         Age: Student Age   (In Range 17 and 29 Included)
         Gender: Student Gender (Male or Female) Handle lowercase and uppercase
-        student_id: Unique id for each student
-        courses : has courses as keys and grades as values (dict)  
-        add_course()
-            - Take Course Name as input from user
-            - checks if it's already exists
-            - add course then print message to user
-        
-        remove_course()
-            - get course name from user
-            - checks if existance
-            - if not found print a message to user and returns 
-            - print a success deletion message and delete it.
-
-        get_grade()
-            - Returns list of grade values in courses dictionary
-
-        add_grade()
-            - checks if student enrolled in course or not
-            - checks if grade already exists
-            - match grade with course name and assign them
-
-        get_courses()
-            - Return Keys of Courses dictionary (course name)
-
-
+        student_id: Unique id for each student (checked against database for uniqueness)
 
 Grade: 
     - Course name: course name passed as parameter OR user type it in runtime with validation
     - Grade: Grade passed as parameter OR user type it in runtime with validation
+    - Kept for reference — grade data is now stored directly in the database via GradeRepo
 
 Course:
      - Name: Course name
      - Credit: Credit Hours of Course
-     - Enrolled_students: List of Enrolled Students
-     - add_student()
-        - add students to enrolled students in course
-     - remove_student()
-        - check if student is found in the enrolled students
-        - if not print a message to user and returns 
-        - remove student from course (Unrol)
-     - get_students()
-        - return list of enrolled students
-     - get_students_count()
-        - return count of enrolled students in a course
 
 
 ### service classes: to handle business logic with static methods
 
 CourseService: 
-display_course_info()
+display_course_info(course_name)
     - void function that prints complete course information: name, credit, enrolled_students number
     - displays each student with their id enrolled in this course
     - displays average grade for this course using get_course_average()
     - checks if the course has NO enrolled students
 
-
-get_course_average()
+get_course_average(course_id)
     - checks if the course has NO enrolled students
-    - collects all grades for this course from all students
+    - collects all grades for this course from all students via GradeRepo
     - returns total grades / grades count
     - check if there is NO grades: print a message for user and return None
 
 StudentService: 
-get_grade_for_course(student, course_name)
+get_grade_for_course(student_id, course_name)
     - gets student grade for a specific course
-    - gets all grades
-    - search for matching course name with grade
-    - if found return the grade attribute (NOT FULL OBJECT)
+    - gets course_id from CourseRepo
+    - gets grade from GradeRepo
+    - if found return the grade value
     - if not print a message for user then return none
 
-enrol_in_course(student, course)
-    - checks if student is already enrolled in the course
-    - Add Course to Student
-    - Add Student to Course
+enrol_in_course(student_id, course_name)
+    - gets course_id from CourseRepo
+    - checks if student is already enrolled via EnrollmentRepo
+    - Add enrollment record to database
     - Print success message to user
 
-drop_student_from_course(student, course)
-    - checks if student is already enrolled 
-    - if not print message to user and return 
-    - remove course from student
-    - remove student from course
+drop_student_from_course(student_id, course_name)
+    - gets course_id from CourseRepo
+    - checks if student is already enrolled
+    - if not print message to user and return
+    - remove enrollment record from database
+    - remove grade record from database
     - print success message to user
 
-add_grade_to_student(student, course_name, grade_value)
+add_grade_to_student(student_id, course_name, grade_value)
     - Validate grade value
-    - check if student is enrolled in the course
+    - gets course_id from CourseRepo
+    - check if student is enrolled in the course via EnrollmentRepo
     - if not print message to user and return
-    - create grade object
-    - add to student grades
+    - add grade to database via GradeRepo
 
-calculate_average_grade(student)
-    - handle empty grade
+calculate_average_grade(student_id)
+    - gets all grades from GradeRepo
+    - handle empty grades
     - calculate average
     - return average
 
-display_full_info(student)
-    - Display Student Peronsal Data: Name, Age, Gender, Student id
-    - Display enrolled courses
-    - Display grades
+display_full_info(student_id)
+    - gets student data from StudentRepo
+    - Display Student Personal Data: Name, Age, Gender, Student id
+    - Display enrolled courses via EnrollmentRepo
+    - Display grades with course names via GradeRepo and CourseRepo
     - display average
     - No Return 
 
-display_student_average(student)
-    - take average from calculate_average_grade(student) fucntion
+display_student_average(student_id)
+    - take average from calculate_average_grade(student_id) function
     - if average is None return
     - Display Grade Letter (A, B, C, D, F)
     - No Return 
 
-update_student_grade(student, course_name, new_grade)
+update_student_grade(student_id, course_name, new_grade)
     - validate new grade
     - if not returns
-    - Find the grade to update
-    - If not found print message to user
+    - gets course_id from CourseRepo
+    - check if grade exists via GradeRepo
+    - if not found print message to user
+    - update grade in database
 
+
+### repository classes: to handle all database operations
+
+StudentRepo:
+    add_student(student)
+        - INSERT student record into students table
+    get_all_students()
+        - SELECT all students
+    get_student_by_id(student_id)
+        - SELECT student WHERE student_id matches
+    delete_student(student_id)
+        - DELETE student record
+
+CourseRepo:
+    add_course(course)
+        - INSERT course record into courses table
+    get_all_courses()
+        - SELECT all courses
+    get_course_by_name(course_name)
+        - SELECT course WHERE name matches
+    get_course_by_id(course_id)
+        - SELECT course WHERE course_id matches
+    delete_course_by_id(course_id)
+        - DELETE course record
+
+EnrollmentRepo:
+    enroll_student(student_id, course_id)
+        - INSERT enrollment record
+    drop_student(student_id, course_id)
+        - DELETE enrollment record
+    get_courses_for_student(student_id)
+        - SELECT all course_ids for a student
+    get_students_for_course(course_id)
+        - SELECT all student_ids for a course
+    is_enrolled(student_id, course_id)
+        - SELECT and return True if record exists, False otherwise
+
+GradeRepo:
+    add_grade(student_id, course_id, grade_value)
+        - INSERT grade record
+    get_grade(student_id, course_id)
+        - SELECT grade WHERE student and course match
+    get_all_grades_for_student(student_id)
+        - SELECT all grades for a student
+    update_grade(student_id, course_id, new_grade)
+        - UPDATE grade record
+    delete_grade(student_id, course_id)
+        - DELETE grade record
 
 
 utils folder
@@ -139,7 +160,6 @@ constants (hardcode info)
     - MAX_CREDIT = 5
     - MIN_GRADE = 0
     - MAX_GRADE = 100
-
 
 display: 
     - display_menu()
@@ -155,22 +175,21 @@ display:
         - 10. Update Student Grade
         - 0. Exit
 
-
 helper: 
-    - displaying_collectors(label, collectors)
-        - Displaying all elements of a list for example (students, courses)
-    - user_choice(lablel, choice_collector)
-        - checks user input as valid interger
+    - user_choice(label, choice_collector)
+        - checks user input as valid integer
         - convert it to int
         - check range from 0:n-1
         - return index (choice - 1)
         - if not correct print error message
-    - pick_student(students)  
-        - merge between displaying collectors (students) and user choice in one function
-    
-    - pick_student(courses)  
-        - merge between displaying collectors (courses) and user choice in one function
-    
+    - pick_student()  
+        - fetches all students from StudentRepo
+        - displays students by name
+        - returns selected student_id
+    - pick_course()  
+        - fetches all courses from CourseRepo
+        - displays courses by name
+        - returns selected course_name
 
 validators:
     - get_valid_gender()
@@ -195,7 +214,7 @@ validators:
         - checks empty input
         - checks is numeric
         - must be equal to ID_LENGTH
-        - checks if it's unique
+        - checks uniqueness against database via StudentRepo
         - return id
     
     - get_valid_grade()
@@ -211,6 +230,7 @@ validators:
         - convert to int
         - checks range
         - return credit
+
     - get_valid_course_name()
         - checks empty input
         - handle spaces
@@ -219,9 +239,23 @@ validators:
         - if not valid print sample of available courses
 
 
+database folder
+    connection.py
+        - loads .env credentials using python-dotenv
+        - returns a MySQL connection via mysql-connector-python
+
+    schema.sql
+        - CREATE DATABASE student_management_system
+        - CREATE TABLE students
+        - CREATE TABLE courses
+        - CREATE TABLE enrollments (many-to-many: students <-> courses)
+        - CREATE TABLE grades
+        - All foreign keys use ON DELETE CASCADE
+
+
 main: 
-    - empty list of students and courses
+    - initialize StudentRepo and CourseRepo instances
     - displaying menu
     - user choose an action 
-    - perform that action
+    - perform that action using services and repos
     - only runs in main.py

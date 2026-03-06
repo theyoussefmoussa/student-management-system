@@ -1,8 +1,8 @@
+from repo.student_repo import StudentRepo
+from repo.course_repo import CourseRepo
 from utils.constants import CS_COURSES, ID_LENGTH, MAX_AGE, MAX_CREDIT, MAX_GRADE, MIN_AGE, MIN_CREDIT, MIN_GRADE, MIN_NAME_LENGTH
-
-
-_used_student_ids = set()
-
+student_repo = StudentRepo()
+course_repo = CourseRepo()
 def get_valid_gender() : 
     genders = ["Female", "Male"]
     while True : 
@@ -60,12 +60,12 @@ def get_valid_unique_id() :
         elif len(id) != ID_LENGTH : 
             print("Length Must Be 6 Digits")
             continue
-        elif id in _used_student_ids : 
-            print(f"ID '{id}' Is Already Taken, Try Different One")
-        else : 
-            _used_student_ids.add(id) # Added To Set
-            return id
         
+        elif student_repo.get_student_by_id(id):
+            print(f"ID '{id}' Is Already Taken, Try Different One")
+        
+        else : 
+            return id
 
 
 def get_valid_grade() : 

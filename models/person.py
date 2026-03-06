@@ -1,10 +1,3 @@
-"""
-Person: Base class for people in the system
-    __init__(name, age, gender, id)
-    get_details()
-    __str__()
-"""
-
 from utils.validators import get_valid_name, get_valid_age, get_valid_gender
 
 

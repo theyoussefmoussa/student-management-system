@@ -1,153 +1,158 @@
 """
 StudentService: Handles student-related business logic
 """
-
-from models.grade import Grade
+from repo.student_repo import StudentRepo
+from repo.course_repo import CourseRepo
+from repo.enrollment_repo import EnrollmentRepo
+from repo.grade_repo import GradeRepo
 from utils.constants import MAX_GRADE, MIN_GRADE
+
+student_repo = StudentRepo()
+course_repo = CourseRepo()
+enrollment_repo = EnrollmentRepo()
+grade_repo = GradeRepo()
 
 
 class StudentService: 
 
     @staticmethod
-    def get_grade_for_course(student, course_name):
+    def get_grade_for_course(student_id, course_name):
         """Get student's grade for a specific course"""
-        # Get all grades
-        grades = student.get_grades()
-        
-        # Search for the grade with matching course name
-        for grade in grades:
-            if grade.course_name == course_name:
-                return grade.grade
-        
-        # If not found
-        print(f"No grade found for {course_name}")
-        return None
+        course = course_repo.get_course_by_name(course_name)
+        if not course: 
+            print(f"Course {course_name} Not Found")
+            return None
+        course_id = course[0]
 
-    
+        grade = grade_repo.get_grade(student_id, course_id)
+        if not grade: 
+            print(f"No Grades Found for {course_name}")
+            return None
+        return grade[2]
+
     @staticmethod
-    def enrol_in_course(student, course):
+    def enrol_in_course(student_id, course_name):
         """Enroll student in a course"""
+        # Get course_id from database
+        course = course_repo.get_course_by_name(course_name)
+        if not course:
+            print(f"Course {course_name} Not Found")
+            return
+        course_id = course[0]
+
         # Check if already enrolled
-        enrolled_courses = student.get_courses()
-        if course.name in enrolled_courses:
-            print(f"Already enrolled in {course.name}")
+        if enrollment_repo.is_enrolled(student_id, course_id):
+            print(f"Already enrolled in {course_name}")
             return
         
-        # Add course to student
-        student.add_course(course.name)
-        
-        # Add student to course
-        course.add_student(student)
-        
-        print(f"Student {student.name} enrolled successfully in {course.name}")
-
+        enrollment_repo.enroll_student(student_id, course_id)
+        print(f"Student {student_id} Has Enrolled {course_name} Successfully")
 
     @staticmethod
-    def drop_student_from_course(student, course):
+    def drop_student_from_course(student_id, course_name):
         """Drop student from a course"""
+        # Get course_id from database
+        course = course_repo.get_course_by_name(course_name)
+        if not course:
+            print(f"Course {course_name} Not Found")
+            return
+        course_id = course[0]
+
         # Check if student is enrolled
-        enrolled_courses = student.get_courses()
-        if course.name not in enrolled_courses:
-            print(f"Student not enrolled in {course.name}")
+        if not enrollment_repo.is_enrolled(student_id, course_id):
+            print(f"Student not enrolled in {course_name}")
             return
         
-        # Remove course from student
-        student.remove_course(course.name)
-        
-        # Remove student from course
-        course.remove_student(student)
-            
-        print(f"Student {student.name} dropped from {course.name}")
-
+        enrollment_repo.drop_student(student_id, course_id)
+        grade_repo.delete_grade(student_id, course_id)
+        print(f"Student {student_id} dropped from {course_name}")
 
     @staticmethod
-    def add_grade_to_student(student, course_name, grade_value):
+    def add_grade_to_student(student_id, course_name, grade_value):
         """Add a grade to student for a specific course"""
         # Validate grade value
         if not (MIN_GRADE <= grade_value <= MAX_GRADE):
             print("Grade must be between 0 and 100")
             return
         
-        # Check if student is enrolled in the course
-        enrolled_courses = student.get_courses()
-        course_names = [course for course in enrolled_courses]
-        
-        if course_name not in course_names:
-            print(f"Student not enrolled in {course_name}")
+        # Get course_id from database
+        course = course_repo.get_course_by_name(course_name)
+        if not course:
+            print(f"Course {course_name} Not Found")
+            return
+        course_id = course[0]
+
+        # Check if student is enrolled
+        if not enrollment_repo.is_enrolled(student_id, course_id):
+            print(f"Student {student_id} is not enrolled in {course_name}")
             return
         
-        # Create Grade object
-        new_grade = Grade(course_name, grade_value)
-        
-        # Add to student's grades
-        student.add_grade(new_grade)
+        grade_repo.add_grade(student_id, course_id, grade_value)
+        print("Grade Added Successfully")
 
     @staticmethod
-    def calculate_average_grade(student):
+    def calculate_average_grade(student_id):
         """Calculate student's average grade"""
-        grades = student.get_grades()
+        grades = grade_repo.get_all_grades_for_student(student_id)
         
-        # Handle empty grades
         if not grades:
             print("There are no grades to calculate")
             return None
-        
-        # Calculate average
-        total = sum(grade.grade for grade in grades)
+        total = sum(grade[1] for grade in grades)  # [1] = grade_value
         average = total / len(grades)
-        
         return average
 
-
     @staticmethod
-    def display_full_info(student):
+    def display_full_info(student_id):
         """Display complete student information"""
         print('-' * 50)
         print('-' * 15, 'Student Profile', '-' * 15)
         print('-' * 50)
         
-        print(f"Name: {student.name}")
-        print(f"Age: {student.age}")
-        print(f"Gender: {student.gender}")
-        print(f"Student ID: {student.student_id}")
+        student = student_repo.get_student_by_id(student_id)
+        print(f"Name: {student[1]}")
+        print(f"Age: {student[2]}")
+        print(f"Gender: {student[3]}")
+        print(f"Student ID: {student_id}")
         print()
         
         # Display courses
         print("Enrolled Courses:")
-        courses = student.get_courses()
+        courses = enrollment_repo.get_courses_for_student(student_id)
         if courses:
             for course in courses:
-                print(f"  - {course}")
+                course_data = course_repo.get_course_by_id(course[0])
+                print(f"  - {course_data[1]}")
         else:
             print("  No courses enrolled")
         print()
-        
+                
         # Display grades
         print("Grades:")
-        grades = student.get_grades()
+        grades = grade_repo.get_all_grades_for_student(student_id)
         if grades:
             for grade in grades:
-                print(f"  - {grade.course_name}: {grade.grade}")
+                course_data = course_repo.get_course_by_id(grade[0])  # grade[0] = course_id
+                print(f"  - {course_data[1]}: {grade[1]}")            # course name: grade value
         else:
             print("  No grades yet")
         print()
         
-        # Display average
-        StudentService.display_student_average(student)
+        StudentService.display_student_average(student_id)
         print('-' * 50)
 
-
     @staticmethod
-    def display_student_average(student):
+    def display_student_average(student_id):
         """Display student's average grade and GPA letter"""
-        avg = StudentService.calculate_average_grade(student)
-        
+        student = student_repo.get_student_by_id(student_id)
+        student_name = student[1]
+
+        avg = StudentService.calculate_average_grade(student_id)
         if avg is None:
             return
         
-        print(f"{student.name}'s Average Grade: {avg:.2f}")
+        print(f"{student_name}'s Average Grade: {avg:.2f}")
         
-        # Calculate letter grade
         if avg >= 90:
             letter = 'A'
         elif avg >= 80:
@@ -161,23 +166,26 @@ class StudentService:
         
         print(f"GPA Letter: {letter}")
 
-
     @staticmethod
-    def update_student_grade(student, course_name, new_grade):
+    def update_student_grade(student_id, course_name, new_grade):
         """Update a student's grade for a specific course"""
         # Validate new grade
-        if not (MIN_GRADE<= new_grade <= MAX_GRADE):
+        if not (MIN_GRADE <= new_grade <= MAX_GRADE):
             print("Grade must be between 0 and 100")
             return
         
-        # Find the grade to update
-        grades = student.get_grades()
-        for grade in grades:
-            if grade.course_name == course_name:
-                # Update the grade
-                grade.grade = new_grade
-                print(f"Grade updated to {new_grade} for {course_name}")
-                return
+        # Get course_id from database
+        course = course_repo.get_course_by_name(course_name)
+        if not course:
+            print(f"Course {course_name} Not Found")
+            return
+        course_id = course[0]
+
+        # Check if grade exists
+        grade = grade_repo.get_grade(student_id, course_id)
+        if not grade:
+            print(f"No grade found for {course_name}")
+            return
         
-        # If grade not found
-        print(f"No grade found for {course_name}")
+        grade_repo.update_grade(student_id, course_id, new_grade)
+        print("Grade Updated Successfully")
