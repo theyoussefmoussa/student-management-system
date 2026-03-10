@@ -50,6 +50,7 @@ student_management_system/
 ├── main.py
 ├── .env                        # Database credentials (not tracked by Git)
 ├── .gitignore
+├── requirements.txt
 ├── models/
 │   ├── person.py
 │   ├── student.py
@@ -89,7 +90,7 @@ courses ────────────────────────
 │ course_id (PK, AUTO_INCREMENT)       │
 │ name (UNIQUE)                        │
 │ credit                               │
-                                       
+
 grades
 │ id (PK, AUTO_INCREMENT)
 │ student_id (FK → students)
@@ -287,7 +288,7 @@ python --version
 3. Install dependencies:
 
 ```bash
-pip install mysql-connector-python python-dotenv
+pip install -r requirements.txt
 ```
 
 4. Create the database by running `database/schema.sql` in your MySQL client:
@@ -349,3 +350,9 @@ The system will display the main menu. Enter the corresponding number to perform
 - MySQL 8.0 or higher
 - `mysql-connector-python`
 - `python-dotenv`
+
+> Install all dependencies via:
+>
+> ```bash
+> pip install -r requirements.txt
+> ```
